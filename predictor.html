@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Workout Level Classifier + Recommendations</title>
+    <title>Workout Type Classifier | 96% Accuracy</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; max-width: 1000px; margin: auto; padding: 20px; background: #f0f4f8; }
-        .container { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .container { background: white; padding: 30px; border-radius: 15px; }
         h1 { color: #1e3c72; text-align: center; }
         .form-row { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 15px; }
         .form-group { flex: 1; min-width: 180px; }
@@ -15,19 +15,19 @@
         button { background: #2a5298; color: white; padding: 12px; width: 100%; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; margin-top: 15px; }
         button:hover { background: #1e3c72; }
         .result { margin-top: 20px; padding: 20px; border-radius: 12px; text-align: center; font-size: 1.5rem; font-weight: bold; }
-        .level-1 { background: #d4edda; color: #155724; }
-        .level-2 { background: #fff3cd; color: #856404; }
-        .level-3 { background: #d1ecf1; color: #0c5460; }
+        .workout-Cardio { background: #d4edda; color: #155724; }
+        .workout-HIIT { background: #fff3cd; color: #856404; }
+        .workout-Strength { background: #d1ecf1; color: #0c5460; }
+        .workout-Yoga { background: #e2d5f0; color: #4a235a; }
         .recommendations { margin-top: 20px; padding: 15px; border-radius: 12px; background: #f8f9fa; }
-        .recommendations ul { margin: 10px 0 0 20px; }
         footer { text-align: center; margin-top: 20px; color: #666; }
     </style>
     <script src="tree_rules.js"></script>
 </head>
 <body>
 <div class="container">
-    <h1>🏋️ Workout Level Classifier</h1>
-    <p>Enter your session data → we predict your experience level and recommend suitable workouts.</p>
+    <h1>🏋️ Workout Type Classifier</h1>
+    <p>Enter your session data – we predict your workout type (Cardio, HIIT, Strength, Yoga) and recommend exercises.</p>
     <form id="predictionForm">
         <div class="form-row">
             <div class="form-group"><label>Age</label><input type="number" id="age" value="30" required></div>
@@ -47,45 +47,43 @@
             <div class="form-group"><label>Water Intake (L)</label><input type="number" id="water" value="2.5" step="0.1" required></div>
             <div class="form-group"><label>Workout Frequency (days/week)</label><input type="number" id="freq" value="3" required></div>
         </div>
-        <button type="button" onclick="predict()">🔍 Classify & Recommend</button>
+        <button type="button" onclick="predict()">🔍 Predict Workout Type</button>
     </form>
     <div id="result" class="result"></div>
     <div id="recommendations" class="recommendations" style="display:none;"></div>
 </div>
-<footer>Model: Decision Tree (92% accuracy) | GitHub Pages</footer>
+<footer>Model: Decision Tree – 96% test accuracy | GitHub Pages</footer>
 
 <script>
-const workoutRecommendations = {
-    "1": {  // Beginner
-        name: "Beginner",
-        exercises: [
-            "🚶 Brisk walking – 20-30 min",
-            "🧘 Basic stretching / Yoga (beginner poses)",
-            "🏋️ Bodyweight squats (3 sets of 10)",
-            "🚴 Stationary cycling (low resistance)",
-            "💧 Focus on consistency and hydration"
-        ]
-    },
-    "2": {  // Intermediate
-        name: "Intermediate",
-        exercises: [
-            "🏃 Running or jogging – 30 min",
-            "💪 Push-ups, lunges, planks",
-            "🚴 HIIT: 30 sec sprint / 30 sec rest",
-            "🏋️ Dumbbell workouts (moderate weight)",
-            "📈 Increase intensity progressively"
-        ]
-    },
-    "3": {  // Advanced
-        name: "Advanced",
-        exercises: [
-            "⚡ High-intensity interval training (HIIT)",
-            "🏋️ Heavy compound lifts (deadlifts, squats)",
-            "🧘 Advanced yoga (power yoga, inversions)",
-            "🏃 Long-distance running or cycling",
-            "🏆 Periodised training with recovery"
-        ]
-    }
+const exerciseMap = {
+    "Cardio": [
+        "🏃‍♂️ Running / Jogging – 30 min",
+        "🚴‍♀️ Cycling (moderate pace)",
+        "🏊‍♂️ Swimming laps",
+        "🚶‍♂️ Brisk walking",
+        "🏸 Jump rope"
+    ],
+    "HIIT": [
+        "⚡ Burpees (30 sec on, 15 sec rest)",
+        "⚡ Mountain climbers",
+        "⚡ High knees",
+        "⚡ Squat jumps",
+        "⚡ Bicycle crunches"
+    ],
+    "Strength": [
+        "🏋️‍♂️ Push-ups (3 sets of 10-15)",
+        "🏋️‍♀️ Squats with dumbbells",
+        "🏋️‍♂️ Lunges",
+        "🏋️‍♀️ Deadlifts (light weight)",
+        "🏋️‍♂️ Plank (30-60 sec)"
+    ],
+    "Yoga": [
+        "🧘‍♀️ Sun Salutation (Surya Namaskar)",
+        "🧘‍♂️ Downward Dog (Adho Mukha Svanasana)",
+        "🧘‍♀️ Warrior I & II",
+        "🧘‍♂️ Tree pose (Vrikshasana)",
+        "🧘‍♀️ Child's pose (cool-down)"
+    ]
 };
 
 function predict() {
@@ -124,15 +122,15 @@ function predict() {
         if (features[idx] <= node.threshold) node = node.left;
         else node = node.right;
     }
-    let level = node.class;  // "1", "2", or "3"
-    let rec = workoutRecommendations[level];
+    let workout = node.class;
     
     let resultDiv = document.getElementById('result');
-    resultDiv.innerHTML = `✅ Your Experience Level: <strong>${rec.name}</strong>`;
-    resultDiv.className = `result level-${level}`;
+    resultDiv.innerHTML = `✅ Recommended Workout Type: <strong>${workout}</strong>`;
+    resultDiv.className = `result workout-${workout}`;
     
+    let exercises = exerciseMap[workout] || [];
     let recDiv = document.getElementById('recommendations');
-    recDiv.innerHTML = `<h3>💪 Recommended Workouts:</h3><ul>${rec.exercises.map(e => `<li>${e}</li>`).join('')}</ul>`;
+    recDiv.innerHTML = `<h3>💪 Recommended Exercises for ${workout}:</h3><ul>${exercises.map(e => `<li>${e}</li>`).join('')}</ul>`;
     recDiv.style.display = 'block';
 }
 </script>
