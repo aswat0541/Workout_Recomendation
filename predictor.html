@@ -21,6 +21,7 @@
         .workout-Yoga { background: #e2d5f0; color: #4a235a; }
         .recommendations { margin-top: 20px; padding: 15px; border-radius: 12px; background: #f8f9fa; }
         footer { text-align: center; margin-top: 20px; color: #666; }
+        .error { color: red; text-align: center; margin-top: 20px; }
     </style>
     <script src="tree_rules.js"></script>
 </head>
@@ -86,7 +87,15 @@ const exerciseMap = {
     ]
 };
 
+// Must match exactly the feature_cols order in your Python script
+const featureNames = [
+    "Age", "Gender_Code", "Weight (kg)", "Height (m)", "Max_BPM", "Avg_BPM",
+    "Resting_BPM", "Session_Duration (hours)", "Calories_Burned", "Fat_Percentage",
+    "Water_Intake (liters)", "Workout_Frequency (days/week)", "BMI", "BMI_Class", "HR_Burn_Ratio"
+];
+
 function predict() {
+    // Get input values
     let age = parseFloat(document.getElementById('age').value);
     let gender = document.getElementById('gender').value;
     let weight = parseFloat(document.getElementById('weight').value);
@@ -100,6 +109,7 @@ function predict() {
     let water = parseFloat(document.getElementById('water').value);
     let freq = parseFloat(document.getElementById('freq').value);
 
+    // Derived features
     let bmi = weight / (height * height);
     let bmi_class;
     if (bmi < 18.5) bmi_class = 0;
@@ -110,25 +120,39 @@ function predict() {
     let hr_burn_ratio = calories / (max_bpm + 1);
 
     const features = [age, gender_code, weight, height, max_bpm, avg_bpm, resting_bpm, duration, calories, fat, water, freq, bmi, bmi_class, hr_burn_ratio];
-    const featureNames = [
-        "Age", "Gender_Code", "Weight (kg)", "Height (m)", "Max_BPM", "Avg_BPM",
-        "Resting_BPM", "Session_Duration (hours)", "Calories_Burned", "Fat_Percentage",
-        "Water_Intake (liters)", "Workout_Frequency (days/week)", "BMI", "BMI_Class", "HR_Burn_Ratio"
-    ];
 
+    // Traverse decision tree
     let node = decisionTree;
-    while (node.class === undefined) {
-        let idx = featureNames.indexOf(node.feature);
-        if (features[idx] <= node.threshold) node = node.left;
-        else node = node.right;
+    let maxIter = 1000;
+    let iter = 0;
+    while (node.class === undefined && iter < maxIter) {
+        let featName = node.feature;
+        let idx = featureNames.indexOf(featName);
+        if (idx === -1) {
+            console.error("Feature not found:", featName);
+            document.getElementById('result').innerHTML = "❌ Error: Feature mismatch in tree.";
+            return;
+        }
+        let value = features[idx];
+        if (value <= node.threshold) {
+            node = node.left;
+        } else {
+            node = node.right;
+        }
+        iter++;
     }
+
+    if (node.class === undefined) {
+        document.getElementById('result').innerHTML = "❌ Error: Could not classify. Check tree structure.";
+        return;
+    }
+
     let workout = node.class;
-    
     let resultDiv = document.getElementById('result');
     resultDiv.innerHTML = `✅ Recommended Workout Type: <strong>${workout}</strong>`;
     resultDiv.className = `result workout-${workout}`;
     
-    let exercises = exerciseMap[workout] || [];
+    let exercises = exerciseMap[workout] || ["No specific recommendations."];
     let recDiv = document.getElementById('recommendations');
     recDiv.innerHTML = `<h3>💪 Recommended Exercises for ${workout}:</h3><ul>${exercises.map(e => `<li>${e}</li>`).join('')}</ul>`;
     recDiv.style.display = 'block';
